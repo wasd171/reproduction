@@ -1,21 +1,15 @@
-import { Entity, MikroORM, PrimaryKey, Property } from '@mikro-orm/sqlite';
+import { Entity, MikroORM, PrimaryKey, Property } from '@mikro-orm/postgresql';
 
 @Entity()
 class User {
 
-  @PrimaryKey()
-  id!: number;
+  @PrimaryKey({ type: 'string' })
+  id!: string;
 
-  @Property()
-  name: string;
-
-  @Property({ unique: true })
-  email: string;
-
-  constructor(name: string, email: string) {
-    this.name = name;
-    this.email = email;
-  }
+  @Property({
+    columnType: 'serial'
+  })
+  offset!: number
 
 }
 
@@ -23,7 +17,7 @@ let orm: MikroORM;
 
 beforeAll(async () => {
   orm = await MikroORM.init({
-    dbName: ':memory:',
+    dbName: 'test',
     entities: [User],
     debug: ['query', 'query-params'],
     allowGlobalContext: true, // only for testing
@@ -35,17 +29,10 @@ afterAll(async () => {
   await orm.close(true);
 });
 
-test('basic CRUD example', async () => {
-  orm.em.create(User, { name: 'Foo', email: 'foo' });
-  await orm.em.flush();
-  orm.em.clear();
-
-  const user = await orm.em.findOneOrFail(User, { email: 'foo' });
-  expect(user.name).toBe('Foo');
-  user.name = 'Bar';
-  orm.em.remove(user);
-  await orm.em.flush();
-
-  const count = await orm.em.count(User, { email: 'foo' });
-  expect(count).toBe(0);
+test('migration', async () => {
+  const isMigrationNeeded = await orm.migrator.checkMigrationNeeded()
+  if (isMigrationNeeded) {
+    console.log('Creating migration!')
+    await orm.migrator.createMigration()
+  }
 });
